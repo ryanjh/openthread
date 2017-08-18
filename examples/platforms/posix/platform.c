@@ -80,6 +80,37 @@ void PlatformInit(int argc, char *argv[])
     platformRandomInit();
 }
 
+#ifdef OPENTHREAD_MULTIPLE_INSTANCE
+otInstance *PlatformAlloc(void *aInstanceBuffer, size_t *aInstanceBufferSize)
+{
+    otInstance *aInstance = NULL;
+
+    if (aInstanceBufferSize != NULL)
+    {
+        *aInstanceBufferSize = sizeof(otPlatformInstance);
+
+        if (aInstanceBuffer != NULL)
+        {
+            // Construct the context
+            otPlatformInstance *platformInstance = (otPlatformInstance*) aInstanceBuffer;
+            platformInstance->node_id = NODE_ID;
+
+            otPlatformRadio *platformRadio = &platformInstance->platformRadio;
+            platformRadio->sReceiveFrame.mPsdu = platformRadio->sReceiveFrame_mPsdu;
+            platformRadio->sTransmitFrame.mPsdu = platformRadio->sTransmitFrame_mPsdu;
+            platformRadio->sAckFrame.mPsdu = platformRadio->sAckFrame_mPsdu;
+
+            aInstance = (otInstance*) (platformInstance + 1);
+            platformRadioCopy(aInstance);
+
+            //TODO remove
+            printf("node_id = %#x, socket_fd = %#x port = %d\n", platformInstance->node_id, platformRadio->sSockFd, 9000 + platformRadio->sPortOffset + platformInstance->node_id);
+        }
+    }
+    return aInstance;
+}
+#endif //OPENTHREAD_MULTIPLE_INSTANCE
+
 void PlatformProcessDrivers(otInstance *aInstance)
 {
     fd_set read_fds;
@@ -94,7 +125,7 @@ void PlatformProcessDrivers(otInstance *aInstance)
     FD_ZERO(&error_fds);
 
     platformUartUpdateFdSet(&read_fds, &write_fds, &error_fds, &max_fd);
-    platformRadioUpdateFdSet(&read_fds, &write_fds, &max_fd);
+    platformRadioUpdateFdSet(aInstance, &read_fds, &write_fds, &max_fd);
     platformAlarmUpdateTimeout(&timeout);
 
     if (!otTaskletsArePending(aInstance))

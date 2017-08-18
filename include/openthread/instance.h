@@ -158,6 +158,7 @@ OTAPI uint32_t OTCALL otGetCompartmentId(otInstance *aInstance);
 #else // OTDLL
 
 #ifdef OPENTHREAD_MULTIPLE_INSTANCE
+
 /**
  * This function initializes the OpenThread library.
  *

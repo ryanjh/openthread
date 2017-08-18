@@ -83,6 +83,37 @@ __forceinline void timersub(struct timeval *a, struct timeval *b, struct timeval
 
 #include <openthread/openthread.h>
 
+typedef struct otPlatformRadio
+{
+    PhyState sState;
+
+    RadioPacket sReceiveFrame;
+    uint8_t sReceiveFrame_mPsdu[kMaxPHYPacketSize];
+    RadioPacket sTransmitFrame;
+    uint8_t sTransmitFrame_mPsdu[kMaxPHYPacketSize];
+    RadioPacket sAckFrame;
+    uint8_t sAckFrame_mPsdu[kMaxPHYPacketSize];
+
+    uint8_t  sExtendedAddress[OT_EXT_ADDRESS_SIZE];
+    uint16_t sShortAddress;
+    uint16_t sPanid;
+    int      sSockFd;
+
+    bool sPromiscuous;
+    bool sAckWait;
+    uint16_t sPortOffset;
+} otPlatformRadio;
+
+typedef struct otPlatformInstance
+{
+    uint32_t node_id;
+
+    //
+    // Platform Radio
+    //
+    otPlatformRadio platformRadio;
+} otPlatformInstance;
+
 /**
  * Unique node ID.
  *
@@ -94,6 +125,11 @@ extern uint32_t NODE_ID;
  *
  */
 extern uint32_t WELLKNOWN_NODE_ID;
+
+static inline otPlatformInstance* getPlatformInstance(otInstance *aInstance)
+{
+    return (otPlatformInstance*)((uint8_t*)aInstance - sizeof(otPlatformInstance));
+}
 
 /**
  * This function initializes the alarm service used by OpenThread.
@@ -123,6 +159,8 @@ void platformAlarmProcess(otInstance *aInstance);
  */
 void platformRadioInit(void);
 
+void platformRadioCopy(otInstance *aInstance);
+
 /**
  * This function updates the file descriptor sets with file descriptors used by the radio driver.
  *
@@ -131,7 +169,7 @@ void platformRadioInit(void);
  * @param[inout]  aMaxFd       A pointer to the max file descriptor.
  *
  */
-void platformRadioUpdateFdSet(fd_set *aReadFdSet, fd_set *aWriteFdSet, int *aMaxFd);
+void platformRadioUpdateFdSet(otInstance *aInstance, fd_set *aReadFdSet, fd_set *aWriteFdSet, int *aMaxFd);
 
 /**
  * This function performs radio driver processing.

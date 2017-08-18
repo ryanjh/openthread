@@ -53,6 +53,10 @@ void PlatformInit(int argc, char *argv[]);
  */
 void PlatformDeinit(void);
 
+#ifdef OPENTHREAD_MULTIPLE_INSTANCE
+otInstance *PlatformAlloc(void *aInstanceBuffer, size_t *aInstanceBufferSize);
+#endif //OPENTHREAD_MULTIPLE_INSTANCE
+
 /**
  * This function performs all platform-specific processing.
  *
