@@ -83,16 +83,23 @@ __forceinline void timersub(struct timeval *a, struct timeval *b, struct timeval
 
 #include <openthread/openthread.h>
 
+OT_TOOL_PACKED_BEGIN
+struct RadioMessage
+{
+    uint8_t mChannel;
+    uint8_t mPsdu[kMaxPHYPacketSize];
+} OT_TOOL_PACKED_END;
+
 typedef struct otPlatformRadio
 {
     PhyState sState;
 
+    struct RadioMessage sReceiveMessage;
+    struct RadioMessage sTransmitMessage;
+    struct RadioMessage sAckMessage;
     RadioPacket sReceiveFrame;
-    uint8_t sReceiveFrame_mPsdu[kMaxPHYPacketSize];
     RadioPacket sTransmitFrame;
-    uint8_t sTransmitFrame_mPsdu[kMaxPHYPacketSize];
     RadioPacket sAckFrame;
-    uint8_t sAckFrame_mPsdu[kMaxPHYPacketSize];
 
     uint8_t  sExtendedAddress[OT_EXT_ADDRESS_SIZE];
     uint16_t sShortAddress;
@@ -106,7 +113,7 @@ typedef struct otPlatformRadio
 
 typedef struct otPlatformInstance
 {
-    uint32_t node_id;
+    uint32_t nodeId;
 
     //
     // Platform Radio
@@ -129,6 +136,15 @@ extern uint32_t WELLKNOWN_NODE_ID;
 static inline otPlatformInstance* getPlatformInstance(otInstance *aInstance)
 {
     return (otPlatformInstance*)((uint8_t*)aInstance - sizeof(otPlatformInstance));
+}
+
+static inline uint32_t getPlatformNodeId(otInstance *aInstance)
+{
+#ifdef OPENTHREAD_MULTIPLE_INSTANCE
+    return getPlatformInstance(aInstance)->nodeId;
+#else
+    return NODE_ID;
+#endif
 }
 
 /**

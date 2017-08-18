@@ -80,13 +80,6 @@ enum
     POSIX_RECEIVE_SENSITIVITY = -100,  // dBm
 };
 
-OT_TOOL_PACKED_BEGIN
-struct RadioMessage
-{
-    uint8_t mChannel;
-    uint8_t mPsdu[kMaxPHYPacketSize];
-} OT_TOOL_PACKED_END;
-
 static void radioTransmit(otInstance *aInstance, struct RadioMessage *msg, const struct RadioPacket *pkt);
 static void radioSendMessage(otInstance *aInstance);
 static void radioSendAck(otInstance *aInstance);
@@ -100,18 +93,13 @@ static otPlatformRadio sPlatformRadio =
     .sPortOffset = 0
 };
 
-static struct RadioMessage sReceiveMessage;//TODO
-static struct RadioMessage sTransmitMessage;
-static struct RadioMessage sAckMessage;
-
 static inline otPlatformRadio* getPlatformRadio(otInstance *aInstance)
 {
 #ifdef OPENTHREAD_MULTIPLE_INSTANCE
-    otPlatformInstance* pfInstance = getPlatformInstance(aInstance);
-    return &(pfInstance->platformRadio);
+    return &(getPlatformInstance(aInstance)->platformRadio);
 #else
     return &sPlatformRadio;
-#endif //OPENTHREAD_MULTIPLE_INSTANCE
+#endif
 }
 
 static inline bool isFrameTypeAck(const uint8_t *frame)
@@ -304,22 +292,14 @@ static uint16_t crc16_citt(uint16_t aFcs, uint8_t aByte)
 
 void otPlatRadioGetIeeeEui64(otInstance *aInstance, uint8_t *aIeeeEui64)
 {
-#ifdef OPENTHREAD_MULTIPLE_INSTANCE
-    otPlatformInstance *platformInstance = getPlatformInstance(aInstance);
-    uint32_t node_id = platformInstance->node_id;
-#else
-    (void)aInstance;
-    uint32_t node_id = NODE_ID;
-#endif
-
     aIeeeEui64[0] = 0x18;
     aIeeeEui64[1] = 0xb4;
     aIeeeEui64[2] = 0x30;
     aIeeeEui64[3] = 0x00;
-    aIeeeEui64[4] = (node_id >> 24) & 0xff;
-    aIeeeEui64[5] = (node_id >> 16) & 0xff;
-    aIeeeEui64[6] = (node_id >> 8) & 0xff;
-    aIeeeEui64[7] = node_id & 0xff;
+    aIeeeEui64[4] = (getPlatformNodeId(aInstance) >> 24) & 0xff;
+    aIeeeEui64[5] = (getPlatformNodeId(aInstance) >> 16) & 0xff;
+    aIeeeEui64[6] = (getPlatformNodeId(aInstance) >> 8) & 0xff;
+    aIeeeEui64[7] = getPlatformNodeId(aInstance) & 0xff;
 }
 
 void otPlatRadioSetPanId(otInstance *aInstance, uint16_t panid)
@@ -387,9 +367,9 @@ void platformRadioInit(void)
     sPlatformRadio.sSockFd = (int)socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     bind(sPlatformRadio.sSockFd, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
 
-    sPlatformRadio.sReceiveFrame.mPsdu = sReceiveMessage.mPsdu;
-    sPlatformRadio.sTransmitFrame.mPsdu = sTransmitMessage.mPsdu;
-    sPlatformRadio.sAckFrame.mPsdu = sAckMessage.mPsdu;
+    sPlatformRadio.sReceiveFrame.mPsdu = sPlatformRadio.sReceiveMessage.mPsdu;
+    sPlatformRadio.sTransmitFrame.mPsdu = sPlatformRadio.sTransmitMessage.mPsdu;
+    sPlatformRadio.sAckFrame.mPsdu = sPlatformRadio.sAckMessage.mPsdu;
 }
 
 void platformRadioCopy(otInstance *aInstance)
@@ -507,7 +487,7 @@ void radioReceive(otInstance *aInstance)
     platformRadio->sReceiveFrame.mLength = (uint8_t)(rval - 1);
 #ifdef OPENTHREAD_MULTIPLE_INSTANCE
     memcpy(platformRadio->sReceiveFrame.mPsdu, receiveMessage.mPsdu, platformRadio->sReceiveFrame.mLength);
-    //printf("radioReceive %d size = %d\n", mInstance->node_id, mInstance->sReceiveFrame.mLength); TODO
+    //printf("radioReceive %d size = %d ch = %d\n", getPlatformNodeId(aInstance), platformRadio->sReceiveFrame.mLength, receiveMessage.mChannel); //TODO
 #endif //OPENTHREAD_MULTIPLE_INSTANCE
 
     if (platformRadio->sAckWait &&
@@ -631,17 +611,6 @@ void radioTransmit(otInstance *aInstance, struct RadioMessage *msg, const struct
     uint16_t crc = 0;
     uint16_t crc_offset = pkt->mLength - sizeof(uint16_t);
 
-    otPlatformInstance *platformInstance = getPlatformInstance(aInstance);
-    otPlatformRadio *platformRadio = getPlatformRadio(aInstance);
-
-#ifdef OPENTHREAD_MULTIPLE_INSTANCE
-    uint32_t node_id = platformInstance->node_id;
-#else
-    uint32_t node_id = NODE_ID;
-#endif //OPENTHREAD_MULTIPLE_INSTANCE
-
-    //printf("radioTransmit %d size = %d\n", node_id, pkt->mLength);
-
     for (i = 0; i < crc_offset; i++)
     {
         crc = crc16_citt(crc, msg->mPsdu[i]);
@@ -654,11 +623,14 @@ void radioTransmit(otInstance *aInstance, struct RadioMessage *msg, const struct
     sockaddr.sin_family = AF_INET;
     inet_pton(AF_INET, "127.0.0.1", &sockaddr.sin_addr);
 
+    otPlatformRadio *platformRadio = getPlatformRadio(aInstance);
+    //printf("radioTransmit %d size = %d ch = %d\n", getPlatformNodeId(aInstance), pkt->mLength, msg->mChannel); //TODO
+
     for (i = 1; i <= WELLKNOWN_NODE_ID; i++)
     {
         ssize_t rval;
 
-        if (node_id == i)
+        if (getPlatformNodeId(aInstance) == i)
         {
             continue;
         }
@@ -679,41 +651,20 @@ void radioTransmit(otInstance *aInstance, struct RadioMessage *msg, const struct
 void radioSendAck(otInstance *aInstance)
 {
     otPlatformRadio *platformRadio = getPlatformRadio(aInstance);
-
-#ifdef OPENTHREAD_MULTIPLE_INSTANCE
-    struct RadioMessage ackMessage;
-    memcpy(ackMessage.mPsdu, platformRadio->sAckFrame.mPsdu, IEEE802154_ACK_LENGTH);
     platformRadio->sAckFrame.mLength = IEEE802154_ACK_LENGTH;
-    ackMessage.mPsdu[0] = IEEE802154_FRAME_TYPE_ACK;
-#else
-    platformRadio->sAckFrame.mLength = IEEE802154_ACK_LENGTH;
-    sAckMessage.mPsdu[0] = IEEE802154_FRAME_TYPE_ACK;
-#endif
+    platformRadio->sAckMessage.mPsdu[0] = IEEE802154_FRAME_TYPE_ACK;
 
     if (isDataRequest(platformRadio->sReceiveFrame.mPsdu))
     {
-#ifdef OPENTHREAD_MULTIPLE_INSTANCE
-        ackMessage.mPsdu[0] |= IEEE802154_FRAME_PENDING;
-#else
-        sAckMessage.mPsdu[0] |= IEEE802154_FRAME_PENDING;
-#endif
+        platformRadio->sAckMessage.mPsdu[0] |= IEEE802154_FRAME_PENDING;
     }
 
-#ifdef OPENTHREAD_MULTIPLE_INSTANCE
-    ackMessage.mPsdu[1] = 0;
-    ackMessage.mPsdu[2] = getDsn(platformRadio->sReceiveFrame.mPsdu);
+    platformRadio->sAckMessage.mPsdu[1] = 0;
+    platformRadio->sAckMessage.mPsdu[2] = getDsn(platformRadio->sReceiveFrame.mPsdu);
 
-    ackMessage.mChannel = platformRadio->sReceiveFrame.mChannel;
+    platformRadio->sAckMessage.mChannel = platformRadio->sReceiveFrame.mChannel;
 
-    radioTransmit(aInstance, &ackMessage, &(platformRadio->sAckFrame));
-#else
-    sAckMessage.mPsdu[1] = 0;
-    sAckMessage.mPsdu[2] = getDsn(platformRadio->sReceiveFrame.mPsdu);
-
-    sAckMessage.mChannel = platformRadio->sReceiveFrame.mChannel;
-
-    radioTransmit(aInstance, &sAckMessage, &platformRadio->sAckFrame);
-#endif
+    radioTransmit(aInstance, &(platformRadio->sAckMessage), &(platformRadio->sAckFrame));
 }
 
 void radioProcessFrame(otInstance *aInstance)
