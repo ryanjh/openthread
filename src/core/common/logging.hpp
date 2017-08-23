@@ -1366,11 +1366,21 @@ const char *otLogRegionToString(otLogRegion aRegion);
 /**
 * Local/private macro to dynamically filter log level.
 */
+#ifdef OPENTHREAD_MULTIPLE_INSTANCE
 #define _otDynamicLog(aInstance, aLogLevel, aRegion, aFormat, ...)          \
     do {                                                                    \
-        if (otGetDynamicLogLevel(aInstance) >= aLogLevel)                   \
+        /*error: comparison is always true due to limited range of data type [-Werror=type-limits]*/ \
+        if (otGetDynamicLogLevel(aInstance) == aLogLevel || otGetDynamicLogLevel(aInstance) > aLogLevel)                   \
+            _otPlatLog(aLogLevel, aRegion, aFormat, aInstance, ## __VA_ARGS__);        \
+    } while (false)
+#else
+#define _otDynamicLog(aInstance, aLogLevel, aRegion, aFormat, ...)          \
+    do {                                                                    \
+        /*error: comparison is always true due to limited range of data type [-Werror=type-limits]*/ \
+        if (otGetDynamicLogLevel(aInstance) == aLogLevel || otGetDynamicLogLevel(aInstance) > aLogLevel)                   \
             _otPlatLog(aLogLevel, aRegion, aFormat, ## __VA_ARGS__);        \
     } while (false)
+#endif //OPENTHREAD_MULTIPLE_INSTANCE
 
 #else // OPENTHREAD_CONFIG_ENABLE_DYNAMIC_LOG_LEVEL
 

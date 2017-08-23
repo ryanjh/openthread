@@ -60,17 +60,28 @@ void otPlatLog(otLogLevel aLogLevel, otLogRegion aLogRegion, const char *aFormat
 
     offset = 0;
 
+#ifdef OPENTHREAD_MULTIPLE_INSTANCE
+    va_start(args, aFormat);
+
+    otPlatformInstance *platformInstance = getPlatformInstance(va_arg(args, otInstance*));
+    LOG_PRINTF("[%d] ", platformInstance->node_id);
+
+    charsWritten = vsnprintf(&logString[offset], sizeof(logString) - offset, aFormat, args);
+    va_end(args);
+#else
     LOG_PRINTF("[%d] ", NODE_ID);
 
     va_start(args, aFormat);
     charsWritten = vsnprintf(&logString[offset], sizeof(logString) - offset, aFormat, args);
     va_end(args);
+#endif
 
     otEXPECT_ACTION(charsWritten >= 0, logString[offset] = 0);
 
 exit:
 #ifndef _WIN32
     syslog(LOG_CRIT, "%s", logString);
+    printf("%s\r\n", logString);
 #else
     printf("%s\r\n", logString);
 #endif
@@ -78,4 +89,3 @@ exit:
     (void)aLogLevel;
     (void)aLogRegion;
 }
-
