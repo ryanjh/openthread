@@ -471,12 +471,7 @@ bool otPlatRadioGetPromiscuous(otInstance *aInstance)
 void radioReceive(otInstance *aInstance)
 {
     otPlatformRadio *platformRadio = getPlatformRadio(aInstance);
-#ifdef OPENTHREAD_MULTIPLE_INSTANCE
-    struct RadioMessage receiveMessage;
-    ssize_t rval = recvfrom(platformRadio->sSockFd, (char *)&receiveMessage, sizeof(receiveMessage), 0, NULL, NULL);
-#else
-    ssize_t rval = recvfrom(platformRadio->sSockFd, (char *)&sReceiveMessage, sizeof(sReceiveMessage), 0, NULL, NULL);
-#endif //OPENTHREAD_MULTIPLE_INSTANCE
+    ssize_t rval = recvfrom(platformRadio->sSockFd, (char *)&(platformRadio->sReceiveMessage), sizeof(platformRadio->sReceiveMessage), 0, NULL, NULL);
 
     if (rval < 0)
     {
@@ -485,17 +480,10 @@ void radioReceive(otInstance *aInstance)
     }
 
     platformRadio->sReceiveFrame.mLength = (uint8_t)(rval - 1);
-#ifdef OPENTHREAD_MULTIPLE_INSTANCE
-    memcpy(platformRadio->sReceiveFrame.mPsdu, receiveMessage.mPsdu, platformRadio->sReceiveFrame.mLength);
-    //printf("radioReceive %d size = %d ch = %d\n", getPlatformNodeId(aInstance), platformRadio->sReceiveFrame.mLength, receiveMessage.mChannel); //TODO
-#endif //OPENTHREAD_MULTIPLE_INSTANCE
+
 
     if (platformRadio->sAckWait &&
-#ifdef OPENTHREAD_MULTIPLE_INSTANCE
-        platformRadio->sTransmitFrame.mChannel == receiveMessage.mChannel &&
-#else
-        platformRadio->sTransmitFrame.mChannel == sReceiveMessage.mChannel &&
-#endif
+        platformRadio->sTransmitFrame.mChannel == platformRadio->sReceiveMessage.mChannel &&
         isFrameTypeAck(platformRadio->sReceiveFrame.mPsdu) &&
         getDsn(platformRadio->sReceiveFrame.mPsdu) == getDsn(platformRadio->sTransmitFrame.mPsdu))
     {
@@ -515,11 +503,7 @@ void radioReceive(otInstance *aInstance)
         }
     }
     else if ((platformRadio->sState == kStateReceive || platformRadio->sState == kStateTransmit) &&
-#ifdef OPENTHREAD_MULTIPLE_INSTANCE
-             (platformRadio->sReceiveFrame.mChannel == receiveMessage.mChannel))
-#else
-             (platformRadio->sReceiveFrame.mChannel == sReceiveMessage.mChannel))
-#endif
+             (platformRadio->sReceiveFrame.mChannel == platformRadio->sReceiveMessage.mChannel))
     {
         radioProcessFrame(aInstance);
     }
@@ -528,17 +512,9 @@ void radioReceive(otInstance *aInstance)
 void radioSendMessage(otInstance *aInstance)
 {
     otPlatformRadio *platformRadio = getPlatformRadio(aInstance);
-#ifdef OPENTHREAD_MULTIPLE_INSTANCE
-    struct RadioMessage transmitMessage;
-    memcpy(transmitMessage.mPsdu, platformRadio->sTransmitFrame.mPsdu, platformRadio->sTransmitFrame.mLength);
-    transmitMessage.mChannel = platformRadio->sTransmitFrame.mChannel;
+    platformRadio->sTransmitMessage.mChannel = platformRadio->sTransmitFrame.mChannel;
 
-    radioTransmit(aInstance, &transmitMessage, &(platformRadio->sTransmitFrame));
-#else
-    sTransmitMessage.mChannel = platformRadio->sTransmitFrame.mChannel;
-
-    radioTransmit(aInstance, &sTransmitMessage, &platformRadiosTransmitFrame);
-#endif
+    radioTransmit(aInstance, &(platformRadio->sTransmitMessage), &(platformRadio->sTransmitFrame));
 
     platformRadio->sAckWait = isAckRequested(platformRadio->sTransmitFrame.mPsdu);
 
@@ -624,7 +600,7 @@ void radioTransmit(otInstance *aInstance, struct RadioMessage *msg, const struct
     inet_pton(AF_INET, "127.0.0.1", &sockaddr.sin_addr);
 
     otPlatformRadio *platformRadio = getPlatformRadio(aInstance);
-    //printf("radioTransmit %d size = %d ch = %d\n", getPlatformNodeId(aInstance), pkt->mLength, msg->mChannel); //TODO
+
 
     for (i = 1; i <= WELLKNOWN_NODE_ID; i++)
     {

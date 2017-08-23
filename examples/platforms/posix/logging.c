@@ -63,8 +63,7 @@ void otPlatLog(otLogLevel aLogLevel, otLogRegion aLogRegion, const char *aFormat
 #ifdef OPENTHREAD_MULTIPLE_INSTANCE
     va_start(args, aFormat);
 
-    otPlatformInstance *platformInstance = getPlatformInstance(va_arg(args, otInstance*));
-    LOG_PRINTF("[%d] ", platformInstance->node_id);
+    LOG_PRINTF("[%d] ", getPlatformNodeId(va_arg(args, otInstance*)));
 
     charsWritten = vsnprintf(&logString[offset], sizeof(logString) - offset, aFormat, args);
     va_end(args);
