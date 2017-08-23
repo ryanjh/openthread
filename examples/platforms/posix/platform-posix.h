@@ -90,6 +90,12 @@ struct RadioMessage
     uint8_t mPsdu[kMaxPHYPacketSize];
 } OT_TOOL_PACKED_END;
 
+typedef struct otPlatformAlarm
+{
+    bool s_is_running;
+    uint32_t s_alarm;
+} otPlatformAlarm;
+
 typedef struct otPlatformRadio
 {
     PhyState sState;
@@ -116,9 +122,15 @@ typedef struct otPlatformInstance
     uint32_t nodeId;
 
     //
+    // Platform Alarm
+    //
+    otPlatformAlarm platformAlarm;
+
+    //
     // Platform Radio
     //
     otPlatformRadio platformRadio;
+
 } otPlatformInstance;
 
 /**
@@ -159,7 +171,7 @@ void platformAlarmInit(void);
  * @param[out]  aTimeval  A pointer to the timeval struct.
  *
  */
-void platformAlarmUpdateTimeout(struct timeval *tv);
+void platformAlarmUpdateTimeout(otInstance *aInstance, struct timeval *tv);
 
 /**
  * This function performs alarm driver processing.
@@ -200,6 +212,8 @@ void platformRadioProcess(otInstance *aInstance);
  *
  */
 void platformRandomInit(void);
+
+void platformAlarmCopy(otInstance *aInstance);
 
 /**
  * This function updates the file descriptor sets with file descriptors used by the UART driver.

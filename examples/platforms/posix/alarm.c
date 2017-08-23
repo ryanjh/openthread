@@ -35,13 +35,37 @@
 #include <openthread/platform/alarm.h>
 #include <openthread/platform/diag.h>
 
-static bool s_is_running = false;
-static uint32_t s_alarm = 0;
 static struct timeval s_start;
+static bool isInitialized = false;
+
+static otPlatformAlarm sPlatformAlarm =
+{
+    .s_is_running = false,
+    .s_alarm = 0,
+};
+
+static inline otPlatformAlarm* getPlatformAlarm(otInstance *aInstance)
+{
+#ifdef OPENTHREAD_MULTIPLE_INSTANCE
+    otPlatformInstance* pfInstance = getPlatformInstance(aInstance);
+    return &(pfInstance->platformAlarm);
+#else
+    return &sPlatformAlarm;
+#endif //OPENTHREAD_MULTIPLE_INSTANCE
+}
 
 void platformAlarmInit(void)
 {
-    gettimeofday(&s_start, NULL);
+    if (!isInitialized)
+    {
+        gettimeofday(&s_start, NULL);
+        isInitialized = true;
+    }
+}
+
+void platformAlarmCopy(otInstance *aInstance)
+{
+    memcpy(getPlatformAlarm(aInstance), &sPlatformAlarm, sizeof(otPlatformAlarm));
 }
 
 uint32_t otPlatAlarmGetNow(void)
@@ -56,29 +80,29 @@ uint32_t otPlatAlarmGetNow(void)
 
 void otPlatAlarmStartAt(otInstance *aInstance, uint32_t t0, uint32_t dt)
 {
-    (void)aInstance;
-    s_alarm = t0 + dt;
-    s_is_running = true;
+    otPlatformAlarm *platformAlarm = getPlatformAlarm(aInstance);
+    platformAlarm->s_alarm = t0 + dt;
+    platformAlarm->s_is_running = true;
 }
 
 void otPlatAlarmStop(otInstance *aInstance)
 {
-    (void)aInstance;
-    s_is_running = false;
+    getPlatformAlarm(aInstance)->s_is_running = false;
 }
 
-void platformAlarmUpdateTimeout(struct timeval *aTimeout)
+void platformAlarmUpdateTimeout(otInstance *aInstance, struct timeval *aTimeout)
 {
     int32_t remaining;
+    otPlatformAlarm *platformAlarm = getPlatformAlarm(aInstance);
 
     if (aTimeout == NULL)
     {
         return;
     }
 
-    if (s_is_running)
+    if (platformAlarm->s_is_running)
     {
-        remaining = (int32_t)(s_alarm - otPlatAlarmGetNow());
+        remaining = (int32_t)(platformAlarm->s_alarm - otPlatAlarmGetNow());
 
         if (remaining > 0)
         {
@@ -101,14 +125,15 @@ void platformAlarmUpdateTimeout(struct timeval *aTimeout)
 void platformAlarmProcess(otInstance *aInstance)
 {
     int32_t remaining;
+    otPlatformAlarm *platformAlarm = getPlatformAlarm(aInstance);
 
-    if (s_is_running)
+    if (platformAlarm->s_is_running)
     {
-        remaining = (int32_t)(s_alarm - otPlatAlarmGetNow());
+        remaining = (int32_t)(platformAlarm->s_alarm - otPlatAlarmGetNow());
 
         if (remaining <= 0)
         {
-            s_is_running = false;
+            platformAlarm->s_is_running = false;
 
 #if OPENTHREAD_ENABLE_DIAG
 

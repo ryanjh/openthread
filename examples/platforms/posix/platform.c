@@ -101,6 +101,7 @@ otInstance *PlatformAlloc(void *aInstanceBuffer, size_t *aInstanceBufferSize)
             platformRadio->sAckFrame.mPsdu = platformRadio->sAckMessage.mPsdu;
 
             aInstance = (otInstance*) (platformInstance + 1);
+            platformAlarmCopy(aInstance);
             platformRadioCopy(aInstance);
 
             //TODO remove
@@ -126,7 +127,7 @@ void PlatformProcessDrivers(otInstance *aInstance)
 
     platformUartUpdateFdSet(&read_fds, &write_fds, &error_fds, &max_fd);
     platformRadioUpdateFdSet(aInstance, &read_fds, &write_fds, &max_fd);
-    platformAlarmUpdateTimeout(&timeout);
+    platformAlarmUpdateTimeout(aInstance, &timeout);
 
     if (!otTaskletsArePending(aInstance))
     {
