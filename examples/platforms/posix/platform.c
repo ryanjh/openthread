@@ -95,17 +95,14 @@ otInstance *PlatformAlloc(void *aInstanceBuffer, size_t *aInstanceBufferSize)
             otPlatformInstance *platformInstance = (otPlatformInstance*) aInstanceBuffer;
             platformInstance->nodeId = NODE_ID;
 
-            otPlatformRadio *platformRadio = &platformInstance->platformRadio;
-            platformRadio->sReceiveFrame.mPsdu = platformRadio->sReceiveMessage.mPsdu;
-            platformRadio->sTransmitFrame.mPsdu = platformRadio->sTransmitMessage.mPsdu;
-            platformRadio->sAckFrame.mPsdu = platformRadio->sAckMessage.mPsdu;
-
             aInstance = (otInstance*) (platformInstance + 1);
             platformAlarmCopy(aInstance);
             platformRadioCopy(aInstance);
 
-            //TODO remove
-            printf("node_id = %#x, socket_fd = %#x port = %d\n", platformInstance->nodeId, platformRadio->sSockFd, 9000 + platformRadio->sPortOffset + platformInstance->nodeId);
+            otPlatformRadio *platformRadio = &platformInstance->platformRadio;
+            platformRadio->sReceiveFrame.mPsdu = platformRadio->sReceiveMessage.mPsdu;
+            platformRadio->sTransmitFrame.mPsdu = platformRadio->sTransmitMessage.mPsdu;
+            platformRadio->sAckFrame.mPsdu = platformRadio->sAckMessage.mPsdu;
         }
     }
     return aInstance;
