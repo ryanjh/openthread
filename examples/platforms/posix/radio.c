@@ -333,6 +333,8 @@ void platformRadioInit(void)
 {
     struct sockaddr_in sockaddr;
     char *offset;
+    int broadcast = 1;
+
     memset(&sockaddr, 0, sizeof(sockaddr));
     sockaddr.sin_family = AF_INET;
 
@@ -365,6 +367,9 @@ void platformRadioInit(void)
     sockaddr.sin_addr.s_addr = INADDR_ANY;
 
     sPlatformRadio.sSockFd = (int)socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+    setsockopt(sPlatformRadio.sSockFd, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof broadcast);
+
     bind(sPlatformRadio.sSockFd, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
 
     sPlatformRadio.sReceiveFrame.mPsdu = sPlatformRadio.sReceiveMessage.mPsdu;
@@ -597,7 +602,9 @@ void radioTransmit(otInstance *aInstance, struct RadioMessage *msg, const struct
 
     memset(&sockaddr, 0, sizeof(sockaddr));
     sockaddr.sin_family = AF_INET;
-    inet_pton(AF_INET, "127.0.0.1", &sockaddr.sin_addr);
+
+    char *ot_address = (getenv("OT_ADDRESS") != NULL) ? getenv("OT_ADDRESS") : "127.0.0.1";
+    inet_pton(AF_INET, ot_address, &sockaddr.sin_addr);
 
     otPlatformRadio *platformRadio = getPlatformRadio(aInstance);
 
